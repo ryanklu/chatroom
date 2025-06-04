@@ -1,0 +1,150 @@
+<!-- 
+Place this as index.html in the root.
+You will also need the 'server.js' and 'package.json' files as described below.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Password Protected Chatroom</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; background: #e8eaec;}
+    #login, #chatroom { max-width: 400px; margin: 40px auto; padding: 28px; border-radius: 8px; box-shadow: 0 4px 12px #0001; background: #fff;}
+    #messages { border: 1px solid #ccc; min-height: 200px; padding: 8px;  overflow-y: auto; max-height: 300px;}
+    .msg { margin: 6px 0; }
+    .username { font-weight: bold; color: #264cc5;}
+    .timestamp { color: #bbb; font-size: 0.8em; }
+    #chatroom { display: none; }
+    input, button { font-size: 1em; }
+    button { padding: 6px 18px; border-radius: 5px; border: 1px solid #888;}
+    #error { color: #c00; font-size: 1em; margin-bottom: 10px;}
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h2>Enter Chatroom</h2>
+    <div id="error"></div>
+    <form id="loginform" autocomplete="off">
+      <div><label>Username<br/><input id="username" required /></label></div><br/>
+      <div><label>Password<br/><input id="password" type="password" required /></label></div><br/>
+      <button type="submit">Join</button>
+    </form>
+  </div>
+
+  <div id="chatroom">
+    <h2>Chatroom</h2>
+    <div id="messages"></div>
+    <form id="messageform" autocomplete="off" style="margin-top:16px;">
+      <input id="msginput" placeholder="Message..." required autocomplete="off" style="width:75%;" />
+      <button type="submit">Send</button>
+      <button type="button" id="logout" style="float:right;">Logout</button>
+    </form>
+  </div>
+  
+  <script>
+    let token = "";
+    let username = "";
+    let socket = null;
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"]/g, tag => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;"
+      }[tag]));
+    }
+
+    // LOGIN HANDLER
+    document.getElementById('loginform').onsubmit = async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('username').value.trim();
+      const pwd = document.getElementById('password').value;
+      document.getElementById('error').textContent = '';
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username: name, password: pwd})
+        });
+        const data = await res.json();
+        if(res.ok) {
+          token = data.token;
+          username = name;
+          enterChat();
+        } else {
+          document.getElementById('error').textContent = data.error || "Login failed";
+        }
+      } catch (err) {
+        document.getElementById('error').textContent = "Login error. Try again.";
+      }
+    };
+
+    // LOGOUT
+    document.getElementById('logout').onclick = () => {
+      token = "";
+      username = "";
+      if(socket) socket.disconnect();
+      document.getElementById('chatroom').style.display = "none";
+      document.getElementById('login').style.display = "block";
+      document.getElementById('msginput').value = "";
+    }
+
+    function enterChat() {
+      document.getElementById('login').style.display = "none";
+      document.getElementById('chatroom').style.display = "block";
+      loadMessages();
+
+      socket = io({
+        transportOptions: {
+          polling: {
+            extraHeaders: {
+              Authorization: 'Bearer ' + token
+            }
+          }
+        }
+      });
+
+      socket.on('connect', () => {});
+
+      socket.on('chat message', showMessage);
+
+      socket.on('disconnect', () => {
+        showMessage({sender: '[system]', message: 'Disconnected', timestamp: new Date().toISOString() });
+      });
+    }
+
+    function showMessage(msg) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = "msg";
+      div.innerHTML = `<span class="timestamp">[${(new Date(msg.timestamp)).toLocaleTimeString()}]</span> <span class="username">${escapeHTML(msg.sender)}</span>: ${escapeHTML(msg.message)}`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function loadMessages() {
+      const messages = document.getElementById('messages');
+      messages.innerHTML = "";
+      const res = await fetch('/messages', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if(res.ok) {
+        const msgs = await res.json();
+        msgs.forEach(showMessage);
+      }
+    }
+
+    // SEND MESSAGE
+    document.getElementById('messageform').onsubmit = (e) => {
+      e.preventDefault();
+      if(!socket) return;
+      const input = document.getElementById('msginput');
+      const message = input.value.trim();
+      if(message) {
+        socket.emit('chat message', message);
+        input.value = "";
+      }
+    };
+  </script>
+</body>
+</html>

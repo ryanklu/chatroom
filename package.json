@@ -1,0 +1,12 @@
+{
+	"name": "protected-realtime-chat",
+	"version": "1.0.0",
+	"description": "Password-protected realtime chat with SQLite backend",
+	"main": "server.js",
+	"scripts": { "start": "node server.js" },
+	"dependencies": {
+	  "express": "^4.17.1",
+	  "sqlite3": "^5.0.0",
+	  "socket.io": "^4.7.2"
+	}
+  }
