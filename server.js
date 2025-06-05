@@ -6,8 +6,8 @@ const { Server } = require('socket.io');
 const crypto = require('crypto');
 const path = require('path');
 
-const CHAT_PASSWORD = 'safepass'; // CHANGE THIS PASSWORD!
-const JWT_SECRET = 'supersecret'; // Change this as well!
+const CHAT_PASSWORD = 'rancho3'; // CHANGE THIS PASSWORD!
+const JWT_SECRET = 'rancho3'; // Change this as well!
 
 function createJWT(username) {
   // Super simple token: (username + timestamp + secret hash)
